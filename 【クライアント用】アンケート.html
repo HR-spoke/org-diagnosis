@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>組織診断アンケート</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'メイリオ','Hiragino Kaku Gothic ProN',sans-serif;
+         background: #f5f7fb; color: #333; min-height: 100vh;
+         -webkit-text-size-adjust: 100%; }
+
+  /* ── ヘッダー ── */
+  .header { background: #1e3a5f; color: #fff; padding: 14px 20px;
+            position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+  .header h1 { font-size: 1.1rem; }
+  .header p  { font-size: .75rem; opacity: .8; margin-top: 2px; }
+
+  /* ── プログレスバー ── */
+  .progress-wrap { background: #e2e8f0; height: 6px; }
+  .progress-bar  { background: #3b82f6; height: 6px; width: 0; transition: width .35s ease; }
+  .progress-text { text-align: right; font-size: .72rem; color: #64748b; padding: 4px 16px; }
+
+  /* ── コンテナ ── */
+  .container { max-width: 740px; margin: 0 auto; padding: 16px 14px 100px; }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── カード ── */
+  .card { background: #fff; border-radius: 12px; padding: 20px;
+          box-shadow: 0 2px 12px rgba(0,0,0,.08); margin-bottom: 16px; }
+  .card-title { font-size: .95rem; font-weight: bold; color: #1e3a5f;
+                border-left: 4px solid #3b82f6; padding-left: 10px; margin-bottom: 16px; }
+
+  /* ── フォーム ── */
+  .form-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 15px; }
+  label.field-label { font-size: .85rem; font-weight: bold; color: #555; }
+  label.field-label span { color: #e53e3e; margin-left: 3px; }
+  select, input[type="text"] {
+    border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 11px 13px;
+    font-size: 16px; /* iOS auto-zoom防止：16px以上必須 */
+    font-family: inherit; outline: none; width: 100%;
+    transition: border-color .2s; background: #fff;
+    -webkit-appearance: none; appearance: none;
+    touch-action: manipulation;
+  }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2364748b' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 13px center;
+    padding-right: 36px;
+  }
+  select:focus, input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,.18);
+  }
+
+  /* ── カテゴリヘッダー ── */
+  .cat-header { background: #1e3a5f; color: #fff; border-radius: 10px 10px 0 0;
+                padding: 12px 16px; }
+  .cat-header h2 { font-size: .95rem; }
+  .cat-header p  { font-size: .72rem; opacity: .75; margin-top: 3px; }
+
+  /* ── 設問ブロック ── */
+  .question-block { padding: 14px 16px; border-bottom: 1px solid #f0f0f0; background: #fff; }
+  .question-block:last-child { border-bottom: none; border-radius: 0 0 12px 12px; }
+  .q-num  { font-size: .7rem; color: #94a3b8; margin-bottom: 4px; }
+  .q-text { font-size: .9rem; line-height: 1.7; margin-bottom: 12px; }
+
+  /* ── ラジオボタン（思う／思わない） ── */
+  .radio-group { display: flex; gap: 10px; }
+  .radio-btn { flex: 1; }
+  .radio-btn input { display: none; }
+  .radio-btn label {
+    display: flex; align-items: center; justify-content: center;
+    text-align: center; padding: 11px 8px;
+    min-height: 48px; /* Apple推奨タップ領域44px以上 */
+    border: 2px solid #cbd5e1; border-radius: 10px; cursor: pointer;
+    font-size: .88rem; font-weight: bold;
+    transition: background .12s, border-color .12s, transform .1s;
+    user-select: none; touch-action: manipulation;
+    line-height: 1.2;
+  }
+  .radio-btn input:checked + label.yes {
+    background: #dbeafe; border-color: #3b82f6; color: #1d4ed8;
+    box-shadow: 0 0 0 3px rgba(59,130,246,.2);
+  }
+  .radio-btn input:checked + label.no {
+    background: #fee2e2; border-color: #ef4444; color: #b91c1c;
+    box-shadow: 0 0 0 3px rgba(239,68,68,.2);
+  }
+  .radio-btn label:hover  { opacity: .88; }
+  .radio-btn label:active { transform: scale(.95); }
+
+  /* ── ナビゲーション ── */
+  .nav { display: flex; justify-content: space-between; margin-top: 16px; gap: 10px; }
+  .btn {
+    padding: 13px 22px; border-radius: 10px; border: none; cursor: pointer;
+    font-size: .92rem; font-weight: bold; font-family: inherit;
+    transition: background .2s, transform .1s;
+    touch-action: manipulation;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: #1e3a5f; color: #fff; flex: 1; }
+  .btn-primary:hover  { background: #2d5282; }
+  .btn-primary:active { background: #162d4a; }
+  .btn-back { background: #e2e8f0; color: #555; min-width: 80px; }
+  .btn-back:hover  { background: #cbd5e1; }
+
+  /* ── エラー ── */
+  .error-msg { background: #fee2e2; color: #b91c1c; border-radius: 8px;
+               padding: 10px 13px; font-size: .84rem; margin-bottom: 12px; display: none; }
+
+  /* ── 完了画面 ── */
+  .done-card { text-align: center; padding: 36px 20px; }
+  .done-icon  { font-size: 4rem; margin-bottom: 10px; }
+  .done-title { font-size: 1.3rem; font-weight: bold; color: #1e3a5f; margin-bottom: 6px; }
+  .done-sub   { font-size: .9rem; color: #64748b; line-height: 1.8; }
+  .dl-btn {
+    display: inline-block; margin-top: 22px; padding: 15px 36px;
+    background: #16a34a; color: #fff; border-radius: 12px;
+    font-size: 1rem; font-weight: bold; cursor: pointer; border: none;
+    font-family: inherit; touch-action: manipulation;
+    box-shadow: 0 4px 14px rgba(22,163,74,.35);
+    transition: background .2s, transform .1s;
+  }
+  .dl-btn:hover  { background: #15803d; }
+  .dl-btn:active { transform: scale(.97); }
+  .dl-note { font-size: .75rem; color: #94a3b8; margin-top: 12px; }
+
+  /* ════════════════════════════════════
+     スマートフォン対応（600px以下）
+     ════════════════════════════════════ */
+  @media (max-width: 600px) {
+    .header { padding: 11px 15px; }
+    .header h1 { font-size: .98rem; }
+    .header p  { font-size: .72rem; }
+
+    .container { padding: 10px 10px 110px; }
+
+    .card { padding: 14px; border-radius: 10px; }
+    .card-title { font-size: .9rem; }
+
+    .cat-header { padding: 11px 13px; }
+    .cat-header h2 { font-size: .9rem; }
+
+    .question-block { padding: 14px 12px; }
+    .q-text { font-size: .93rem; line-height: 1.75; margin-bottom: 14px; }
+
+    /* ラジオボタンをさらに大きく */
+    .radio-btn label {
+      min-height: 54px;
+      padding: 14px 6px;
+      font-size: .93rem;
+      border-width: 2.5px;
+      border-radius: 10px;
+    }
+
+    /* ナビを画面下部に固定 */
+    .nav {
+      position: sticky;
+      bottom: 0;
+      left: 0; right: 0;
+      background: rgba(245,247,251,.97);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+      margin-left: -10px;
+      margin-right: -10px;
+      box-shadow: 0 -3px 14px rgba(0,0,0,.1);
+      border-top: 1px solid #e2e8f0;
+      z-index: 50;
+    }
+    .btn { padding: 15px 14px; font-size: .95rem; }
+    .btn-back { min-width: 70px; flex: 0 0 auto; }
+
+    .form-row { margin-bottom: 16px; }
+    label.field-label { font-size: .88rem; }
+
+    /* 完了ページ */
+    .done-card { padding: 24px 14px; }
+    .done-title { font-size: 1.15rem; }
+    .done-sub { font-size: .88rem; }
+    .dl-btn { width: 100%; padding: 17px 20px; font-size: 1.05rem; }
+  }
+
+  /* ── 極小画面（360px以下）── */
+  @media (max-width: 360px) {
+    .radio-btn label { font-size: .86rem; min-height: 50px; }
+    .q-text { font-size: .88rem; }
+    .btn { font-size: .88rem; padding: 13px 10px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>組織診断アンケート</h1>
+  <p id="headerSub">全設問に「思う」または「思わない」でお答えください</p>
+</div>
+<div class="progress-wrap"><div class="progress-bar" id="pb"></div></div>
+<div class="progress-text" id="pt">属性入力</div>
+
+<div class="container">
+  <div id="errorMsg" class="error-msg"></div>
+
+  <!-- ページ0: 属性 -->
+  <div class="page active" data-page="0">
+    <div class="card">
+      <div class="card-title">はじめに、あなたについて教えてください</div>
+      <div class="form-row">
+        <label class="field-label">性別<span>*</span></label>
+        <select id="gender"><option value="">選択してください</option>
+          <option>男性</option><option>女性</option><option>回答しない</option></select>
+      </div>
+      <div class="form-row">
+        <label class="field-label">年齢<span>*</span></label>
+        <select id="age"><option value="">選択してください</option>
+          <option>27歳以下</option><option>27～33歳</option>
+          <option>34歳以上</option><option>55歳以上</option></select>
+      </div>
+      <div class="form-row">
+        <label class="field-label">勤続年数<span>*</span></label>
+        <select id="tenure"><option value="">選択してください</option>
+          <option>1年未満</option><option>1～3年目</option>
+          <option>4年目以上</option><option>10年以上</option></select>
+      </div>
+      <div class="form-row">
+        <label class="field-label">所属部署</label>
+        <input type="text" id="department" placeholder="例：営業部、製造課 など">
+      </div>
+      <div class="form-row">
+        <label class="field-label">役職<span>*</span></label>
+        <select id="position"><option value="">選択してください</option>
+          <option>社員</option><option>パート・アルバイト</option>
+          <option>リーダー・主任</option><option>係長・課長代理</option>
+          <option>課長</option><option>部長・管理職</option>
+          <option>役員・経営者</option></select>
+      </div>
+    </div>
+    <div class="nav"><button class="btn btn-primary" onclick="goNext()">次へ →</button></div>
+  </div>
+
+  <!-- 設問ページ（JS生成） -->
+  <div id="qPages"></div>
+
+  <!-- 完了ページ（3ステート） -->
+  <div class="page" data-page="9" id="donePage">
+
+    <!-- 送信中 -->
+    <div class="card done-card" id="stateSending">
+      <div class="done-icon">⏳</div>
+      <div class="done-title">送信中...</div>
+      <div class="done-sub">回答を送信しています。<br>そのままお待ちください。</div>
+      <div style="margin-top:20px;">
+        <div style="width:48px;height:48px;border:4px solid #e2e8f0;border-top-color:#3b82f6;
+                    border-radius:50%;animation:spin 1s linear infinite;margin:0 auto;"></div>
+      </div>
+    </div>
+
+    <!-- 送信完了 -->
+    <div class="card done-card" id="stateDone" style="display:none">
+      <div class="done-icon">✅</div>
+      <div class="done-title">送信が完了しました！</div>
+      <div class="done-sub">
+        ご協力ありがとうございました。<br>
+        担当者に自動的に通知が届きます。
+      </div>
+      <button class="dl-btn" onclick="downloadJSON()"
+              style="margin-top:16px;background:#64748b;box-shadow:none;font-size:.9rem;padding:12px 24px;">
+        💾 バックアップをダウンロード（任意）
+      </button>
+      <div class="dl-note">※ 念のため手元に保存しておきたい場合のみダウンロードしてください</div>
+    </div>
+
+    <!-- 送信エラー -->
+    <div class="card done-card" id="stateError" style="display:none">
+      <div class="done-icon">⚠️</div>
+      <div class="done-title">送信できませんでした</div>
+      <div class="done-sub">
+        通信エラーが発生しました。<br>
+        下のボタンで回答ファイルをダウンロードして、担当者にお送りください。
+      </div>
+      <button class="dl-btn" onclick="downloadJSON()">📥 回答ファイルをダウンロード</button>
+      <div class="dl-note">
+        ※ ダウンロードしたファイルをメールなどで担当者へお送りください<br>
+        ※ スマートフォンの場合は「ファイル」アプリまたは「ダウンロード」フォルダに保存されます
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+<script>
+// ===== GAS URL設定（デプロイ後に書き換えてください） =====
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbz7os4NFu-yhJ6Lp3PZp_afKakGBDQURvNYydoGOh9Io0yWPC_khR8FfksPkmp2iNUP/exec';
+// =========================================================
+
+// URLパラメータから会社名を取得（例: ?company=株式会社ABC）
+const URL_COMPANY = new URLSearchParams(location.search).get('company') || '';
+
+// 会社名をヘッダーに表示
+if (URL_COMPANY) {
+  document.getElementById('headerSub').textContent = '【' + URL_COMPANY + '】組織診断アンケート';
+}
+
+const CATS = [
+  { name:'①理念・ビジョン・方針', desc:'会社の理念・経営方針・将来性について', qs:[
+    '会社の企業理念や経営方針は明確に示されている',
+    '当社の業績（成長性、収益性、安定性）には満足している',
+    '社員のことを考えた経営が行なわれていると思う',
+    '経営方針や経営計画・新製品情報など経営情報はタイムリーに知らされている',
+    '上司から定期的に部門方針や計画についての具体的な説明を受けている',
+    '会社の理念・ビジョン・経営方針に共感でき、その達成に参加したいと思える',
+    '会社の社会的評価は高いと感じますか',
+    '会社の将来性・成長性はあると感じますか',
+  ]},
+  { name:'②職場の雰囲気・風土', desc:'職場の人間関係・コミュニケーション・文化について', qs:[
+    '上司や先輩は、若い社員を気に掛け積極的に話しかけたり、相談に乗ってくれる',
+    '安心して相談しあえる風土がある',
+    '職場の雰囲気は明るく、活気に溢れている',
+    '自分と上司の相性が良い',
+    '「ありがとう」「いいね」などの感謝・認知・褒める、また挨拶するといった声掛けがある組織風土か',
+    '率直に自分の意見が言える環境だと感じている',
+    'チーム内でうまくコミュニケーションが取れている',
+    '従業員が自由にアイデアや意見を言える組織風土がある',
+    '質の高い仕事への意識や向上心を持つ従業員を育てる組織風土がある',
+    '自主性を尊重し、仕事を任せ、それを支援する組織風土がある',
+    '業務を進めるうえで問題が発生した際、上司や周囲の人は適切なサポートをしてくれている',
+    '社内の人間関係は良好である',
+    'ハラスメント対策が行なわれており、健全な組織運営ができていると思う',
+    '現在の職場を親しい友人や家族に薦めたいと思う',
+    '経営者は社員を信頼しており、その可能性に期待する姿勢がある',
+  ]},
+  { name:'③仕事の品質・充実度', desc:'仕事のやりがい・品質・成長について', qs:[
+    '法令を遵守したプロセスで業務が遂行されていると思う',
+    '機密情報が適切に管理されていると思う',
+    '仕事の納期は守られている',
+    '品質不良など顧客からのクレームは少ない',
+    '目標実現に対して、前向きに行動できている',
+    '今の仕事が将来につながっていると実感している',
+    '自分の仕事が社会や顧客のためになっていると感じる',
+    '自分の考えや発想を仕事に反映できている',
+    '仕事内容に自分の適性や得意なことを活かせている',
+    '仕事を通じてスキルアップに成功したと実感している',
+    '現在の仕事で成長できていると感じる',
+    '達成したい明確な目標がある',
+    '自分の今後の成長も期待できる',
+    '現在の仕事に意義や価値を感じられる',
+    '現在の仕事は達成感があり満足・やりがいがある',
+    '今の会社で働いていることを、誇りをもって家族や友人に話をしている',
+    '今後も、今の会社で働き続けたいと思う',
+    '仕事のやり方・ノウハウなどは共有されている',
+    '自分自身が職場で必要とされていることを実感できている',
+  ]},
+  { name:'④業務の状況・労働環境', desc:'労働時間・業務量・ワークライフバランスについて', qs:[
+    '労働時間は適切だと感じられる',
+    '集中して仕事に取り組める環境や整備が整っている',
+    '他部門との連携、コミュニケーションは円滑である',
+    '定期的に会議やミーティングが開催され、仕事を行う上で必要な情報の共有が行なわれている',
+    '現在の業務量は適切だと感じている',
+    '当社は、勤務時間や仕事内容で過度な負担を強いないようにしていると思う',
+    '業務において精神的・体力的に余裕があると感じる',
+    '残業は自分の無理のない範囲に収まっている',
+    '必要以上に仕事に忙殺されず、プライベートの時間とのバランスが取れている',
+    '残業や休日出勤はそれほど多くなく、疲労感など身体的な負担はそれほど感じない',
+    '社内にリフレッシュできる環境や仕組みが整っている',
+    'コンプライアンスに関して相談しやすい環境が整っている',
+  ]},
+  { name:'⑤管理者のマネジメント', desc:'上司・管理職のリーダーシップ・指導力について', qs:[
+    '上司は困ったときに頼れる存在だ',
+    '上司と業務上に必要な連携がとれていると思う',
+    '上司はあなたに対して方針を提示し、業務の指示・指導を適切におこなっていると思う',
+    '上司の指示は明快かつ的確で仕事が進めやすい',
+    '上司は相談事項などについて放置することなく、タイムリーに判断してくれる',
+    '上司はあなたに対して、成長につながる指摘やフィードバックをしてくれている',
+    '個人目標は十分話し合われ、適切に設定され管理されている',
+    '会社は問題のある社員に対して放置することなく適切に指導を行っている',
+    '所属部門(チーム)は決めた事を徹底できている',
+    '上司が自分のことを信頼し、期待していることを感じる',
+  ]},
+  { name:'⑥人事制度・人事評価', desc:'評価制度・公平性・昇進ルールについて', qs:[
+    '自分の仕事が適切な評価を受け、認められていると感じる',
+    '公平で納得性の高い人事評価を受けていると感じる',
+    '評価の基準は明確だと感じる',
+    '上司は、期初に設定した目標に照らして好き嫌いなど関係なく公平な評価をしてくれている',
+    '昇進・昇格のルールは明確である',
+    '現在の人事制度は、将来の自分自身の姿や仕事の状況をイメージすることができるものである',
+    '社員の声が人事施策に反映されていると感じる',
+    '当社の評価制度には納得感がある',
+  ]},
+  { name:'⑦処遇・福利厚生', desc:'給与・福利厚生・制度について', qs:[
+    '賃金体系は明確だと思う',
+    '現在の賃金は、仕事内容や能力を前提に考えれば適正な水準である',
+    '失敗しても、チャレンジすることが評価されていると思う',
+    '当社の給与水準は同業他社と比較して、納得できる水準である',
+    '育児や介護をする必要が発生した時にサポートをする制度を活用できる',
+    '有給休暇の取得推進や福利厚生の整備など、労働環境の整備や改善ができていると思う',
+    '福利厚生が働きやすさにつながっていると感じる',
+    '育児休業を取得することなどによって、仕事と育児を両立することができる職場である',
+    'ワークライフバランスが保てていると感じる',
+    '今の福利厚生に満足している',
+  ]},
+  { name:'⑧能力向上・キャリア', desc:'教育・育成・キャリアサポートについて', qs:[
+    'スキルや能力が身につけられる仕事だと感じる',
+    '5年後、10年後の具体的なキャリアビジョンがある',
+    '将来的に達成したい具体的な目標がある',
+    '社内にロールモデル（見本）にしたい人物がいる',
+    '異動やキャリアについての相談ができる制度や環境がある',
+    '将来のキャリアについて教育や支援をおこなっていると思う',
+    '会社は、社員の成長を願い真剣に人材育成・教育に取り組んでくれている',
+    '外部の講習会や資格取得のために支援をおこない、従業員のスキルアップの支援をしていると思う',
+    '社員教育を体系的におこなっていると思う',
+    '管理職層やリーダー層を育成するための教育に力を入れていると思う',
+    '新人に関する教育を体系的におこなっていると思う',
+    '自分の能力向上につながる仕事の機会は与えられている',
+    '当社は法令を遵守するための管理や教育を徹底していると思う',
+  ]},
+];
+
+// 設問ページ生成
+const qPagesEl = document.getElementById('qPages');
+CATS.forEach((cat, ci) => {
+  const div = document.createElement('div');
+  div.className = 'page';
+  div.dataset.page = ci + 1;
+  let h = `<div class="cat-header"><h2>${cat.name}</h2><p>${cat.desc}</p></div>
+    <div style="background:#fff;border-radius:0 0 12px 12px;">`;
+  cat.qs.forEach((q, qi) => {
+    h += `<div class="question-block">
+      <div class="q-num">Q${qi+1} / ${cat.qs.length}</div>
+      <div class="q-text">${q}</div>
+      <div class="radio-group">
+        <div class="radio-btn"><input type="radio" name="q${ci}_${qi}" id="q${ci}_${qi}y" value="思う">
+          <label for="q${ci}_${qi}y" class="yes">思う</label></div>
+        <div class="radio-btn"><input type="radio" name="q${ci}_${qi}" id="q${ci}_${qi}n" value="思わない">
+          <label for="q${ci}_${qi}n" class="no">思わない</label></div>
+      </div></div>`;
+  });
+  h += `</div><div class="nav">
+    <button class="btn btn-back" onclick="goBack()">← 戻る</button>
+    <button class="btn btn-primary" onclick="goNext()">${ci<CATS.length-1?'次へ →':'送信して完了'}</button>
+  </div>`;
+  div.innerHTML = h;
+  qPagesEl.appendChild(div);
+});
+
+let cur = 0;
+const TOTAL = CATS.length + 1;
+let savedAnswers = {};
+
+function showPage(n) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelector(`[data-page="${n}"]`)?.classList.add('active');
+  cur = n;
+  const pct = Math.min((n/TOTAL)*100, 100);
+  document.getElementById('pb').style.width = pct + '%';
+  document.getElementById('pt').textContent =
+    n === 0 ? '属性入力' :
+    n <= CATS.length ? `カテゴリ ${n} / ${CATS.length}` : '完了';
+  window.scrollTo(0,0);
+  document.getElementById('errorMsg').style.display = 'none';
+}
+
+function validate() {
+  const err = document.getElementById('errorMsg');
+  if (cur === 0) {
+    const req = ['gender','age','tenure','position'];
+    for (const id of req) {
+      if (!document.getElementById(id).value) {
+        err.textContent = '必須項目（＊マーク）をすべて選択してください。';
+        err.style.display = 'block'; return false;
+      }
+    }
+    return true;
+  }
+  const ci = cur - 1;
+  if (ci < 0 || ci >= CATS.length) return true;
+  for (let qi = 0; qi < CATS[ci].qs.length; qi++) {
+    if (!document.querySelector(`input[name="q${ci}_${qi}"]:checked`)) {
+      err.textContent = `Q${qi+1} に回答してください。`;
+      err.style.display = 'block'; return false;
+    }
+  }
+  return true;
+}
+
+function goNext() {
+  if (!validate()) return;
+  if (cur < CATS.length) showPage(cur + 1);
+  else finishSurvey();
+}
+function goBack() { if (cur > 0) showPage(cur - 1); }
+
+function finishSurvey() {
+  // 全回答を収集
+  const attrs = {
+    gender:     document.getElementById('gender').value,
+    age:        document.getElementById('age').value,
+    tenure:     document.getElementById('tenure').value,
+    department: document.getElementById('department').value,
+    position:   document.getElementById('position').value,
+  };
+  const answers = {};
+  CATS.forEach((cat, ci) => {
+    cat.qs.forEach((q, qi) => {
+      const el = document.querySelector(`input[name="q${ci}_${qi}"]:checked`);
+      if (el) answers[q] = el.value;
+    });
+  });
+
+  // スコア集計
+  const allAnswers  = Object.values(answers);
+  const totalQ      = allAnswers.length;
+  const negCount    = allAnswers.filter(v => v === '思わない').length;
+  const negRate     = totalQ > 0 ? negCount / totalQ : 0;
+
+  // 送信データ
+  savedAnswers = {
+    respondentId:   'R-' + Date.now() + '-' + Math.random().toString(36).slice(2,7),
+    company:        URL_COMPANY,
+    respondentName: attrs.gender + '/' + attrs.age + '/' + attrs.tenure,
+    department:     attrs.department || '',
+    position:       attrs.position   || '',
+    attrs,
+    answers,
+    totalQuestions: totalQ,
+    answeredCount:  totalQ,
+    negativeCount:  negCount,
+    negativeRate:   negRate,
+    submitted_at:   new Date().toISOString()
+  };
+
+  // 完了ページを「送信中」状態で表示
+  showPage(9);
+  setDoneState('sending');
+
+  // GASへ送信
+  submitToGAS(savedAnswers);
+}
+
+function setDoneState(state) {
+  document.getElementById('stateSending').style.display = state === 'sending' ? '' : 'none';
+  document.getElementById('stateDone').style.display    = state === 'done'    ? '' : 'none';
+  document.getElementById('stateError').style.display   = state === 'error'   ? '' : 'none';
+}
+
+async function submitToGAS(data) {
+  // GAS URLが未設定の場合はエラーフォールバック
+  if (!GAS_URL || GAS_URL === 'YOUR_GAS_URL_HERE') {
+    console.warn('GAS_URLが設定されていません。ダウンロードモードにフォールバックします。');
+    setDoneState('error');
+    return;
+  }
+  try {
+    // mode:'no-cors' でCORSエラーを回避（レスポンス内容は読めないがPOSTは届く）
+    await fetch(GAS_URL, {
+      method:  'POST',
+      mode:    'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify(data)
+    });
+    // no-cors は成功でも opaque response → エラーなければ成功とみなす
+    setDoneState('done');
+  } catch (err) {
+    console.error('GAS送信エラー:', err);
+    setDoneState('error');
+  }
+}
+
+function downloadJSON() {
+  const json = JSON.stringify(savedAnswers, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const ts   = new Date().toLocaleDateString('ja-JP').replace(/\//g,'-');
+  const dept = (savedAnswers.attrs?.department || '').replace(/[/\\?%*:|"<>]/g,'') || '未設定';
+  const name = `回答_${dept}_${ts}.json`;
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+}
+
+showPage(0);
+</script>
+</body>
+</html>

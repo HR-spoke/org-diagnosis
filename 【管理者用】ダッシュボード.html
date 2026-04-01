@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>組織診断 管理者ダッシュボード</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Helvetica Neue',Arial,'Hiragino Kaku Gothic ProN',sans-serif;background:#f0f2f5;color:#2d3748;min-height:100vh}
+.header{background:linear-gradient(135deg,#1a365d 0%,#2d6a4f 100%);color:#fff;padding:18px 32px}
+.header h1{font-size:20px;font-weight:700}
+.header .sub{font-size:12px;opacity:.8;margin-top:2px}
+.container{max-width:1100px;margin:0 auto;padding:0 24px 40px}
+.card{background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:24px;margin-top:20px}
+.card-title{font-size:15px;font-weight:700;color:#1a365d;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.step-badge{background:#1a365d;color:#fff;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:8px;border:none;cursor:pointer;font-size:14px;font-weight:600;transition:all .2s}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+.btn-primary{background:#1a365d;color:#fff}.btn-primary:hover:not(:disabled){background:#2c5282}
+.btn-green{background:#2d6a4f;color:#fff}.btn-green:hover:not(:disabled){background:#1e4d36}
+.btn-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
+.drop-zone{border:2px dashed #cbd5e0;border-radius:10px;padding:28px 20px;text-align:center;color:#718096;cursor:pointer;transition:all .2s;font-size:14px}
+.drop-zone:hover,.drop-zone.dragover{border-color:#1a365d;background:#ebf4ff}
+.status{padding:10px 14px;border-radius:8px;font-size:13px;margin-top:10px}
+.st-ok{background:#d1fae5;color:#065f46}.st-err{background:#fee2e2;color:#991b1b}.st-info{background:#dbeafe;color:#1e40af}
+.hidden{display:none!important}
+.co-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.co-btn{padding:6px 16px;border-radius:20px;border:2px solid #1a365d;background:#fff;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s}
+.co-btn.active{background:#1a365d;color:#fff}
+.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.kpi-card{background:#f8fafc;border-radius:10px;padding:20px;text-align:center;border:1px solid #e2e8f0}
+.kpi-label{font-size:12px;color:#718096;margin-bottom:6px}
+.kpi-value{font-size:34px;font-weight:800;color:#1a365d;line-height:1.1}
+.kpi-unit{font-size:12px;color:#718096;margin-top:4px}
+.enps-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.enps-item{background:#f8fafc;border-radius:8px;padding:14px;text-align:center}
+.enps-lbl{font-size:11px;color:#718096;margin-bottom:6px}
+.enps-val{font-size:28px;font-weight:700;line-height:1.1}
+.bar-wrap{position:relative;height:300px}
+.radar-wrap{position:relative;height:340px;max-width:500px;margin:0 auto}
+.cat-tbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:16px}
+.cat-tbl th{background:#1a365d;color:#fff;padding:10px 12px;text-align:left;font-weight:600}
+.cat-tbl td{padding:9px 12px;border-bottom:1px solid #e2e8f0;vertical-align:middle}
+.cat-tbl tr:hover td{background:#f8fafc}
+.badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600}
+.b-good{background:#d1fae5;color:#065f46}
+.b-warn{background:#fef3c7;color:#92400e}
+.b-bad{background:#fee2e2;color:#991b1b}
+.need-list{list-style:none}
+.need-item{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid #f0f0f0}
+.need-item:last-child{border-bottom:none}
+.need-rank{background:#1a365d;color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.need-title{font-size:14px;font-weight:600;margin-bottom:4px;color:#1a365d}
+.need-desc{font-size:13px;color:#718096;line-height:1.6}
+.debug-panel{background:#1e293b;color:#94a3b8;border-radius:8px;padding:14px;font-family:monospace;font-size:11px;margin-top:12px;max-height:160px;overflow-y:auto;white-space:pre-wrap}
+@media(max-width:768px){.kpi-grid{grid-template-columns:1fr 1fr}.enps-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="sub">組織診断システム</div>
+  <h1>📊 管理者ダッシュボード</h1>
+</div>
+
+<div class="container">
+
+<div class="card">
+  <div class="card-title"><span class="step-badge">1</span>データ取得</div>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+    <div style="flex:1;min-width:180px">
+      <button class="btn btn-primary" id="fetchBtn" onclick="fetchCloud()">☁️ クラウドから回答を取得</button>
+      <div id="cloudStatus" class="status hidden"></div>
+    </div>
+    <div id="dropZone" class="drop-zone" style="flex:1;min-width:200px"
+      ondrop="handleDrop(event)"
+      ondragover="event.preventDefault();this.classList.add('dragover')"
+      ondragleave="this.classList.remove('dragover')"
+      onclick="document.getElementById('fileInput').click()">
+      📂 JSONファイルをドロップ、またはクリックして選択
+      <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFile(event)">
+    </div>
+  </div>
+  <div id="debugWrap" class="hidden" style="margin-top:12px">
+    <div style="font-size:12px;color:#718096;margin-bottom:4px">🔍 データ構造確認（先頭1件）</div>
+    <div id="debugPanel" class="debug-panel"></div>
+  </div>
+</div>
+
+<div id="filterCard" class="card hidden">
+  <div class="card-title"><span class="step-badge">2</span>会社別フィルター</div>
+  <div id="coBtns" class="co-btns"></div>
+</div>
+
+<div id="analytics" class="hidden">
+
+  <div class="card">
+    <div class="card-title">📈 全体サマリー</div>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">回答数</div><div class="kpi-value" id="kpiCount">—</div><div class="kpi-unit">件</div></div>
+      <div class="kpi-card"><div class="kpi-label">全体ポジティブ率</div><div class="kpi-value" id="kpiPos">—</div><div class="kpi-unit">%</div></div>
+      <div class="kpi-card"><div class="kpi-label">eNPSスコア</div><div class="kpi-value" id="kpiEnps">—</div><div class="kpi-unit">pt</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">💚 eNPS（従業員推薦度）</div>
+    <div class="enps-grid">
+      <div class="enps-item"><div class="enps-lbl">推薦者（9〜10）</div><div class="enps-val" id="enpsPromo" style="color:#16a34a">—</div><div style="font-size:12px;color:#718096">%</div></div>
+      <div class="enps-item"><div class="enps-lbl">中立者（7〜8）</div><div class="enps-val"  id="enpsNeut"  style="color:#ca8a04">—</div><div style="font-size:12px;color:#718096">%</div></div>
+      <div class="enps-item"><div class="enps-lbl">批判者（0〜6）</div><div class="enps-val"  id="enpsDetr"  style="color:#dc2626">—</div><div style="font-size:12px;color:#718096">%</div></div>
+      <div class="enps-item"><div class="enps-lbl">eNPSスコア</div><div class="enps-val"        id="enpsScore" style="color:#1a365d">—</div><div style="font-size:12px;color:#718096">pt</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📊 カテゴリ別スコア</div>
+    <div class="bar-wrap"><canvas id="barChart"></canvas></div>
+    <table class="cat-tbl">
+      <thead><tr><th>カテゴリ</th><th style="text-align:center">ポジティブ率</th><th style="text-align:center">ネガティブ率</th><th style="text-align:center">判定</th></tr></thead>
+      <tbody id="catTblBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🕸️ カテゴリ別レーダーチャート</div>
+    <div class="radar-wrap"><canvas id="radarChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📚 研修ニーズ分析</div>
+    <ul class="need-list" id="trainingList"></ul>
+  </div>
+
+  <div class="card">
+    <div class="card-title">💼 人事施策提言</div>
+    <ul class="need-list" id="policyList"></ul>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📤 レポート出力</div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="exportPDF()">📄 PDFレポート出力</button>
+      <button class="btn btn-green"   onclick="exportExcel()">📊 Excelレポート出力</button>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxgKRZ4ni_qbn4kh4alpFuxbtLzvUBSLeHwt96oBfbvEpCbBljjwM04PQPXHPeYLbCD/exec';
+
+const CATEGORIES = [
+  {id:'c1', name:'①理念・ビジョン・方針'},
+  {id:'c2', name:'②職場環境・人間関係'},
+  {id:'c3', name:'③仕事・業務内容'},
+  {id:'c4', name:'④労働条件・働き方'},
+  {id:'c5', name:'⑤管理職・マネジメント'},
+  {id:'c6', name:'⑥評価・育成・キャリア'},
+  {id:'c7', name:'⑦処遇・報酬・福利厚生'},
+  {id:'c8', name:'⑧組織コミュニケーション'},
+];
+
+/* ★ アンケートv2.html の設問IDに完全一致（q01〜q29 ゼロパディング）*/
+const Q_MAP = {
+  c1: ['q01','q02','q03','q04'],
+  c2: ['q05','q06','q07','q08'],
+  c3: ['q09','q10','q11'],
+  c4: ['q12','q13','q14','q15'],
+  c5: ['q16','q17','q18'],
+  c6: ['q19','q20','q21','q22'],
+  c7: ['q23','q24','q25','q26'],
+  c8: ['q27','q28','q29'],
+};
+
+const ENPS_KEYS = new Set(['eNPS','enps','q30','eNps']);
+
+const TRAINING_MAP = {
+  c1:{title:'理念・ビジョン浸透研修',            desc:'企業理念・経営方針の理解促進と共感醸成のための研修を推奨します。'},
+  c2:{title:'職場環境改善・チームビルディング研修', desc:'心理的安全性の向上と良好な人間関係構築を目的とした研修を推奨します。'},
+  c3:{title:'業務改善・仕事の意義発見研修',        desc:'仕事のやりがいと職務満足度向上のための研修を推奨します。'},
+  c4:{title:'ワークライフバランス推進研修',         desc:'労働時間・働き方の改善意識を高める研修を推奨します。'},
+  c5:{title:'管理職マネジメント研修',              desc:'リーダーシップ・コーチング・フィードバック技術の強化研修を推奨します。'},
+  c6:{title:'キャリア開発・評価制度理解研修',       desc:'評価制度の透明性向上と自律的キャリア開発を促進する研修を推奨します。'},
+  c7:{title:'報酬・福利厚生制度理解研修',          desc:'報酬制度の仕組みと福利厚生活用方法に関する研修を推奨します。'},
+  c8:{title:'組織コミュニケーション強化研修',       desc:'部門横断コミュニケーションと情報共有文化の醸成を目的とした研修を推奨します。'},
+};
+const POLICY_MAP = {
+  c1:{title:'理念・ビジョンの再定義と浸透施策',       desc:'経営理念を社員が自分ごと化できるよう、朝礼・社内報・評価項目への組み込みを推奨します。'},
+  c2:{title:'職場環境整備・ハラスメント対策強化',      desc:'匿名相談窓口の設置、職場環境調査の定期実施、ハラスメント研修の義務化を推奨します。'},
+  c3:{title:'職務内容・役割の明確化（JD整備）',       desc:'職務記述書（JD）の整備と役割期待値の明示により業務満足度向上を図ることを推奨します。'},
+  c4:{title:'労働時間・休暇制度の見直し',             desc:'時間外労働削減、フレックス・在宅勤務制度の導入・拡充を推奨します。'},
+  c5:{title:'管理職登用・育成制度の強化',             desc:'管理職候補の早期発掘と体系的育成プログラムの構築、評価制度との連動を推奨します。'},
+  c6:{title:'人事評価制度の透明性向上',               desc:'評価基準の公開・フィードバック面談の定期実施・自己申告制度の導入を推奨します。'},
+  c7:{title:'賃金・処遇水準の市場比較と改善',          desc:'業界水準との賃金比較調査を実施し、段階的な報酬改善計画を策定することを推奨します。'},
+  c8:{title:'組織内情報共有・コミュニケーション活性化', desc:'定期全体会議・部門間交流・社内SNS活用などコミュニケーション基盤の整備を推奨します。'},
+};
+
+let allData=[], filtered=[], barChartObj=null, radarChartObj=null, currentCompany='全社';
+
+/* ★ GAS は answers を JSON文字列で返すため必ずパース */
+function parseAnswers(row) {
+  if (!row) return {};
+  let ans = row.answers;
+  if (typeof ans === 'string') { try { ans = JSON.parse(ans); } catch(e) { ans = {}; } }
+  return ans || {};
+}
+
+async function fetchCloud() {
+  const btn=document.getElementById('fetchBtn'), st=document.getElementById('cloudStatus');
+  btn.disabled=true; btn.textContent='取得中…';
+  st.className='status st-info'; st.textContent='クラウドからデータを取得しています…'; st.classList.remove('hidden');
+  try {
+    const res=await fetch(GAS_URL), text=await res.text(), data=JSON.parse(text);
+    if (!Array.isArray(data)) throw new Error('不正なデータ形式');
+    loadData(data);
+    st.className='status st-ok'; st.textContent=`✅ ${data.length}件のデータを取得しました`;
+  } catch(e) {
+    st.className='status st-err'; st.textContent='❌ 取得エラー: '+e.message;
+  } finally { btn.disabled=false; btn.textContent='☁️ クラウドから回答を取得'; }
+}
+
+function handleFile(e){const f=e.target.files[0];if(f)readJSON(f);}
+function handleDrop(e){e.preventDefault();document.getElementById('dropZone').classList.remove('dragover');const f=e.dataTransfer.files[0];if(f)readJSON(f);}
+function readJSON(file){const r=new FileReader();r.onload=e=>{try{const d=JSON.parse(e.target.result);loadData(Array.isArray(d)?d:[d]);}catch{alert('JSONの解析に失敗しました');}};r.readAsText(file);}
+
+function loadData(data){
+  allData=data; filtered=[...data]; currentCompany='全社';
+  showDebug(data[0]); buildFilter(); renderAll();
+}
+
+function showDebug(row){
+  if(!row)return;
+  const ans=parseAnswers(row), keys=Object.keys(ans), smpl={};
+  keys.slice(0,6).forEach(k=>smpl[k]=ans[k]);
+  document.getElementById('debugPanel').textContent=
+    `回答キー数: ${keys.length}\nキー（先頭6件）: ${keys.slice(0,6).join(', ')}${keys.length>6?' …':''}\nサンプル値: ${JSON.stringify(smpl)}`;
+  document.getElementById('debugWrap').classList.remove('hidden');
+}
+
+function buildFilter(){
+  const companies=[...new Set(allData.map(r=>r.company||'未設定'))];
+  const wrap=document.getElementById('coBtns'); wrap.innerHTML='';
+  const mk=(label,fn)=>{const b=document.createElement('button');b.className='co-btn';b.textContent=label;b.onclick=()=>{document.querySelectorAll('.co-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');fn();};return b;};
+  const ab=mk(`全社 (${allData.length}件)`,()=>{filtered=[...allData];currentCompany='全社';renderAll();});
+  ab.classList.add('active'); wrap.appendChild(ab);
+  companies.forEach(co=>{const cnt=allData.filter(r=>(r.company||'未設定')===co).length;wrap.appendChild(mk(`${co} (${cnt}件)`,()=>{filtered=allData.filter(r=>(r.company||'未設定')===co);currentCompany=co;renderAll();}));});
+  document.getElementById('filterCard').classList.remove('hidden');
+}
+
+function calcRates(cat){
+  const qids=Q_MAP[cat.id]||[]; let tot=0,neg=0;
+  filtered.forEach(row=>{const ans=parseAnswers(row);qids.forEach(qid=>{const v=ans[qid];if(v==='p'||v==='neg'){tot++;if(v==='neg')neg++;}});});
+  const negRate=tot>0?parseFloat((neg/tot*100).toFixed(1)):0;
+  return{posRate:parseFloat((100-negRate).toFixed(1)),negRate};
+}
+
+function calcOverall(){
+  let tot=0,neg=0;
+  filtered.forEach(row=>{const ans=parseAnswers(row);Object.entries(ans).forEach(([k,v])=>{if(ENPS_KEYS.has(k))return;if(v==='p'||v==='neg'){tot++;if(v==='neg')neg++;}});});
+  if(tot>0)return parseFloat((100-neg/tot*100).toFixed(1));
+  const rates=filtered.map(r=>parseFloat(r.negativeRate)||0).filter(n=>!isNaN(n));
+  if(rates.length)return parseFloat((100-rates.reduce((a,b)=>a+b,0)/rates.length).toFixed(1));
+  return 0;
+}
+
+function calcENPS(){
+  let promo=0,neut=0,detr=0;
+  filtered.forEach(row=>{const ans=parseAnswers(row);let v=null;for(const k of ENPS_KEYS){if(ans[k]!==undefined){v=ans[k];break;}}if(v==='promo')promo++;else if(v==='neut')neut++;else if(v==='detr')detr++;});
+  const total=promo+neut+detr;
+  if(!total)return{promoP:0,neutP:0,detrP:0,score:0};
+  const promoP=parseFloat((promo/total*100).toFixed(1)),neutP=parseFloat((neut/total*100).toFixed(1)),detrP=parseFloat((detr/total*100).toFixed(1));
+  return{promoP,neutP,detrP,score:Math.round(promoP-detrP)};
+}
+
+function judge(n){if(n<35)return{label:'◎ 良好',cls:'b-good'};if(n<55)return{label:'△ 注意',cls:'b-warn'};return{label:'✕ 要改善',cls:'b-bad'};}
+
+function renderAll(){
+  const n=filtered.length, pos=calcOverall(), enps=calcENPS(), cats=CATEGORIES.map(c=>({...c,...calcRates(c)}));
+  document.getElementById('kpiCount').textContent=n;
+  document.getElementById('kpiPos').textContent=pos;
+  document.getElementById('kpiEnps').textContent=enps.score>=0?'+'+enps.score:enps.score;
+  document.getElementById('enpsPromo').textContent=enps.promoP;
+  document.getElementById('enpsNeut').textContent=enps.neutP;
+  document.getElementById('enpsDetr').textContent=enps.detrP;
+  document.getElementById('enpsScore').textContent=enps.score>=0?'+'+enps.score:enps.score;
+  const tbody=document.getElementById('catTblBody');tbody.innerHTML='';
+  cats.forEach(c=>{const j=judge(c.negRate);tbody.innerHTML+=`<tr><td>${c.name}</td><td style="text-align:center;color:#16a34a;font-weight:700">${c.posRate}%</td><td style="text-align:center;color:#dc2626;font-weight:700">${c.negRate}%</td><td style="text-align:center"><span class="badge ${j.cls}">${j.label}</span></td></tr>`;});
+  renderBar(cats); renderRadar(cats); renderTraining(cats); renderPolicy(cats);
+  document.getElementById('analytics').classList.remove('hidden');
+}
+
+function renderBar(cats){
+  if(barChartObj)barChartObj.destroy();
+  barChartObj=new Chart(document.getElementById('barChart').getContext('2d'),{type:'bar',data:{labels:cats.map(c=>c.name),datasets:[{label:'ポジティブ率(%)',data:cats.map(c=>c.posRate),backgroundColor:'rgba(22,163,74,.72)',borderRadius:4},{label:'ネガティブ率(%)',data:cats.map(c=>c.negRate),backgroundColor:'rgba(220,38,38,.65)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{x:{ticks:{font:{size:11}}},y:{min:0,max:100,ticks:{callback:v=>v+'%'}}}}});
+}
+
+function renderRadar(cats){
+  if(radarChartObj)radarChartObj.destroy();
+  radarChartObj=new Chart(document.getElementById('radarChart').getContext('2d'),{type:'radar',data:{labels:cats.map(c=>c.name),datasets:[{label:'ポジティブ率(%)',data:cats.map(c=>c.posRate),backgroundColor:'rgba(22,163,74,.15)',borderColor:'#16a34a',borderWidth:2,pointBackgroundColor:'#16a34a',pointRadius:4},{label:'ネガティブ率(%)',data:cats.map(c=>c.negRate),backgroundColor:'rgba(220,38,38,.1)',borderColor:'#dc2626',borderWidth:2,pointBackgroundColor:'#dc2626',pointRadius:4,borderDash:[4,3]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},scales:{r:{min:0,max:100,ticks:{stepSize:20}}}}});
+}
+
+function renderTraining(cats){
+  const sorted=[...cats].sort((a,b)=>b.negRate-a.negRate).filter(c=>c.negRate>=35);
+  const el=document.getElementById('trainingList');el.innerHTML='';
+  if(!sorted.length){el.innerHTML='<li style="padding:14px;color:#16a34a">✅ 全カテゴリで研修の優先ニーズは検出されませんでした</li>';return;}
+  sorted.forEach((c,i)=>{const info=TRAINING_MAP[c.id]||{title:c.name+'に関する研修',desc:''};const j=judge(c.negRate);el.innerHTML+=`<li class="need-item"><div class="need-rank">${i+1}</div><div><div class="need-title">${info.title}&nbsp;<span class="badge ${j.cls}">${c.name} ${c.negRate}%</span></div><div class="need-desc">${info.desc}</div></div></li>`;});
+}
+
+function renderPolicy(cats){
+  const sorted=[...cats].sort((a,b)=>b.negRate-a.negRate).filter(c=>c.negRate>=35).slice(0,5);
+  const el=document.getElementById('policyList');el.innerHTML='';
+  if(!sorted.length){el.innerHTML='<li style="padding:14px;color:#16a34a">✅ 現時点で優先的な人事施策提言はありません</li>';return;}
+  sorted.forEach((c,i)=>{const info=POLICY_MAP[c.id]||{title:c.name+'の改善施策',desc:''};const j=judge(c.negRate);el.innerHTML+=`<li class="need-item"><div class="need-rank">${i+1}</div><div><div class="need-title">${info.title}&nbsp;<span class="badge ${j.cls}">${c.name} ${c.negRate}%</span></div><div class="need-desc">${info.desc}</div></div></li>`;});
+}
+
+function exportPDF(){
+  if(!filtered.length){alert('データがありません');return;}
+  const barImg=document.getElementById('barChart').toDataURL('image/png',1.0);
+  const radarImg=document.getElementById('radarChart').toDataURL('image/png',1.0);
+  const n=filtered.length,pos=calcOverall(),enps=calcENPS(),cats=CATEGORIES.map(c=>({...c,...calcRates(c)}));
+  const sorted=[...cats].sort((a,b)=>b.negRate-a.negRate);
+  const training=sorted.filter(c=>c.negRate>=35),policy=sorted.filter(c=>c.negRate>=35).slice(0,5);
+  const today=new Date().toLocaleDateString('ja-JP');
+  function bHtml(n){const j=judge(n);const s=j.cls==='b-good'?'background:#d1fae5;color:#065f46':j.cls==='b-warn'?'background:#fef3c7;color:#92400e':'background:#fee2e2;color:#991b1b';return`<span style="display:inline-block;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600;${s}">${j.label}</span>`;}
+  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>組織診断レポート</title>
+<style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Arial,'Hiragino Kaku Gothic ProN',sans-serif;color:#1a1a2e;font-size:13px;background:#fff}.page{width:210mm;min-height:297mm;padding:18mm 18mm 14mm;page-break-after:always;position:relative}.page:last-child{page-break-after:auto}.cover{background:linear-gradient(135deg,#1a365d,#2d6a4f);color:#fff;padding:40px 36px;border-radius:12px;margin-bottom:28px}.cover h1{font-size:30px;font-weight:800;margin-bottom:8px}.cover p{font-size:14px;opacity:.88}.sec{font-size:17px;font-weight:700;color:#1a365d;border-bottom:3px solid #1a365d;padding-bottom:8px;margin:24px 0 16px}.kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}.kbox{background:#f8fafc;border-radius:10px;padding:18px;text-align:center;border:1.5px solid #e2e8f0}.kl{font-size:11px;color:#718096;margin-bottom:6px}.kv{font-size:34px;font-weight:800;color:#1a365d;line-height:1.1}.ku{font-size:11px;color:#718096;margin-top:4px}.enps-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}.eb{background:#f8fafc;border-radius:8px;padding:14px;text-align:center}.el{font-size:11px;color:#718096;margin-bottom:5px}.ev{font-size:26px;font-weight:700;line-height:1.1}.ci{width:100%;max-height:270px;object-fit:contain;border-radius:8px;display:block;margin:0 auto}.cr{width:360px;max-height:290px;object-fit:contain;border-radius:8px;display:block;margin:0 auto}table{width:100%;border-collapse:collapse;font-size:13px;margin-top:16px}th{background:#1a365d;color:#fff;padding:9px 12px;text-align:left;font-weight:600}td{padding:8px 12px;border-bottom:1px solid #e2e8f0;vertical-align:middle}tr:nth-child(even) td{background:#f8fafc}.need{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #f0f0f0;align-items:flex-start}.need:last-child{border-bottom:none}.nr{background:#1a365d;color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}.nt{font-size:14px;font-weight:600;color:#1a365d;margin-bottom:4px}.nd{font-size:12px;color:#718096;line-height:1.6}.footer{position:absolute;bottom:10mm;left:18mm;right:18mm;text-align:center;font-size:10px;color:#a0aec0;border-top:1px solid #e2e8f0;padding-top:8px}@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}@page{size:A4;margin:0}.page{padding:14mm 14mm 12mm}}</style></head><body>
+<div class="page"><div class="cover"><h1>📊 組織診断レポート</h1><p>作成日：${today}　　対象：${currentCompany}　　回答数：${n}件</p></div><div class="sec">📈 全体サマリー</div><div class="kpi-row"><div class="kbox"><div class="kl">回答数</div><div class="kv">${n}</div><div class="ku">件</div></div><div class="kbox"><div class="kl">全体ポジティブ率</div><div class="kv">${pos}</div><div class="ku">%</div></div><div class="kbox"><div class="kl">eNPSスコア</div><div class="kv">${enps.score>=0?'+'+enps.score:enps.score}</div><div class="ku">pt</div></div></div><div class="sec">💚 eNPS（従業員推薦度）</div><div class="enps-row"><div class="eb"><div class="el">推薦者（9〜10）</div><div class="ev" style="color:#16a34a">${enps.promoP}%</div></div><div class="eb"><div class="el">中立者（7〜8）</div><div class="ev" style="color:#ca8a04">${enps.neutP}%</div></div><div class="eb"><div class="el">批判者（0〜6）</div><div class="ev" style="color:#dc2626">${enps.detrP}%</div></div><div class="eb"><div class="el">eNPSスコア</div><div class="ev" style="color:#1a365d">${enps.score>=0?'+'+enps.score:enps.score}</div></div></div><div class="footer">組織診断システム ｜ ${currentCompany} ｜ ${today} ｜ 1/5</div></div>
+<div class="page"><div class="sec">📊 カテゴリ別スコア</div><img src="${barImg}" class="ci" alt="棒グラフ"><table><thead><tr><th>カテゴリ</th><th style="text-align:center;width:120px">ポジティブ率</th><th style="text-align:center;width:120px">ネガティブ率</th><th style="text-align:center;width:100px">判定</th></tr></thead><tbody>${cats.map(c=>`<tr><td>${c.name}</td><td style="text-align:center;color:#16a34a;font-weight:700">${c.posRate}%</td><td style="text-align:center;color:#dc2626;font-weight:700">${c.negRate}%</td><td style="text-align:center">${bHtml(c.negRate)}</td></tr>`).join('')}</tbody></table><div class="footer">組織診断システム ｜ ${currentCompany} ｜ ${today} ｜ 2/5</div></div>
+<div class="page"><div class="sec">🕸️ カテゴリ別レーダーチャート</div><div style="text-align:center;margin-bottom:10px;font-size:13px"><span style="color:#16a34a;font-weight:600;margin-right:24px">● ポジティブ率</span><span style="color:#dc2626;font-weight:600">◎ ネガティブ率（点線）</span></div><img src="${radarImg}" class="cr" alt="レーダーチャート"><div class="footer">組織診断システム ｜ ${currentCompany} ｜ ${today} ｜ 3/5</div></div>
+<div class="page"><div class="sec">📚 研修ニーズ分析</div>${training.length===0?'<p style="color:#16a34a;padding:14px">✅ 全カテゴリで研修の優先ニーズは検出されませんでした</p>':training.map((c,i)=>{const info=TRAINING_MAP[c.id]||{title:c.name,desc:''};return`<div class="need"><div class="nr">${i+1}</div><div><div class="nt">${info.title}&nbsp;${bHtml(c.negRate)}&nbsp;<span style="font-size:12px;color:#718096">${c.name} / ネガ率 ${c.negRate}%</span></div><div class="nd">${info.desc}</div></div></div>`;}).join('')}<div class="footer">組織診断システム ｜ ${currentCompany} ｜ ${today} ｜ 4/5</div></div>
+<div class="page"><div class="sec">💼 人事施策提言</div>${policy.length===0?'<p style="color:#16a34a;padding:14px">✅ 現時点で優先的な人事施策提言はありません</p>':policy.map((c,i)=>{const info=POLICY_MAP[c.id]||{title:c.name,desc:''};return`<div class="need"><div class="nr">${i+1}</div><div><div class="nt">${info.title}&nbsp;${bHtml(c.negRate)}&nbsp;<span style="font-size:12px;color:#718096">${c.name} / ネガ率 ${c.negRate}%</span></div><div class="nd">${info.desc}</div></div></div>`;}).join('')}<div class="footer">組織診断システム ｜ ${currentCompany} ｜ ${today} ｜ 5/5</div></div>
+<script>window.onload=function(){setTimeout(function(){window.print();},600)};<\/script></body></html>`;
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const win=window.open(url,'_blank');
+  if(win)win.onunload=()=>URL.revokeObjectURL(url);
+  else{alert('ポップアップがブロックされています。このサイトのポップアップを許可してください。');URL.revokeObjectURL(url);}
+}
+
+function exportExcel(){
+  if(!filtered.length){alert('データがありません');return;}
+  const n=filtered.length,pos=calcOverall(),enps=calcENPS(),cats=CATEGORIES.map(c=>({...c,...calcRates(c)}));
+  const sorted=[...cats].sort((a,b)=>b.negRate-a.negRate);
+  const training=sorted.filter(c=>c.negRate>=35),policy=sorted.filter(c=>c.negRate>=35).slice(0,5);
+  const today=new Date().toLocaleDateString('ja-JP');
+  const wb=XLSX.utils.book_new();
+  const ws1=XLSX.utils.aoa_to_sheet([['組織診断レポート'],['作成日',today,'対象',currentCompany],[],['【全体サマリー】'],['回答数',n],['全体ポジティブ率',pos+'%'],['eNPSスコア',(enps.score>=0?'+':'')+enps.score+'pt'],[],['【eNPS詳細】'],['推薦者（9〜10）',enps.promoP+'%'],['中立者（7〜8）',enps.neutP+'%'],['批判者（0〜6）',enps.detrP+'%'],['eNPSスコア',(enps.score>=0?'+':'')+enps.score]]);
+  ws1['!cols']=[{wch:20},{wch:16},{wch:16},{wch:20}];XLSX.utils.book_append_sheet(wb,ws1,'①サマリー');
+  const ws2=XLSX.utils.aoa_to_sheet([['カテゴリ','ポジティブ率','ネガティブ率','判定'],...cats.map(c=>[c.name,c.posRate+'%',c.negRate+'%',judge(c.negRate).label])]);
+  ws2['!cols']=[{wch:28},{wch:14},{wch:14},{wch:12}];XLSX.utils.book_append_sheet(wb,ws2,'②カテゴリ別スコア');
+  const ws3=XLSX.utils.aoa_to_sheet([['優先度','カテゴリ','ネガティブ率','判定','推奨研修','詳細'],...(training.length?training.map((c,i)=>{const info=TRAINING_MAP[c.id]||{title:'',desc:''};return[i+1,c.name,c.negRate+'%',judge(c.negRate).label,info.title,info.desc];}):[['',' 研修ニーズなし','','','','']])]);
+  ws3['!cols']=[{wch:8},{wch:28},{wch:14},{wch:12},{wch:32},{wch:52}];XLSX.utils.book_append_sheet(wb,ws3,'③研修ニーズ');
+  const ws4=XLSX.utils.aoa_to_sheet([['優先度','カテゴリ','ネガティブ率','判定','提言タイトル','詳細'],...(policy.length?policy.map((c,i)=>{const info=POLICY_MAP[c.id]||{title:'',desc:''};return[i+1,c.name,c.negRate+'%',judge(c.negRate).label,info.title,info.desc];}):[['',' 提言なし','','','','']])]);
+  ws4['!cols']=[{wch:8},{wch:28},{wch:14},{wch:12},{wch:32},{wch:52}];XLSX.utils.book_append_sheet(wb,ws4,'④人事施策提言');
+  const ws5rows=[['タイムスタンプ','回答者ID','会社名','回答者名','部署','役職','ネガティブ率','eNPS']];
+  filtered.forEach(row=>{const ans=parseAnswers(row);let ev='';for(const k of ENPS_KEYS){if(ans[k]!==undefined){ev=ans[k];break;}}ws5rows.push([row.timestamp||'',row.respondentId||'',row.company||'',row.respondentName||'',row.department||'',row.position||'',(row.negativeRate||0)+'%',ev]);});
+  const ws5=XLSX.utils.aoa_to_sheet(ws5rows);ws5['!cols']=[{wch:18},{wch:14},{wch:20},{wch:20},{wch:16},{wch:16},{wch:14},{wch:10}];XLSX.utils.book_append_sheet(wb,ws5,'⑤個別回答データ');
+  XLSX.writeFile(wb,`組織診断レポート_${currentCompany}_${today.replace(/\//g,'')}.xlsx`);
+}
+</script>
+</body>
+</html>
