@@ -262,8 +262,9 @@ async function fetchCloud() {
   btn.disabled=true; btn.textContent='取得中…';
   st.className='status st-info'; st.textContent='クラウドからデータを取得しています…'; st.classList.remove('hidden');
   try {
-    const res=await fetch(GAS_URL), text=await res.text(), data=JSON.parse(text);
-    if (!Array.isArray(data)) throw new Error('不正なデータ形式');
+    const res=await fetch(GAS_URL), text=await res.text(), raw=JSON.parse(text);
+    const data = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.responses) ? raw.responses : null);
+    if (!data) throw new Error('不正なデータ形式');
     loadData(data);
     st.className='status st-ok'; st.textContent=`✅ ${data.length}件のデータを取得しました`;
   } catch(e) {
