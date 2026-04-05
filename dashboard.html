@@ -167,12 +167,12 @@ const CATEGORIES = [
 /* ★ アンケートv2.html の設問IDに完全一致（q01〜q29 ゼロパディング）*/
 const Q_MAP = {
   c1: [
-    '会社の企業理念や経営方针は明確に示されている',
+    '会社の企業理念や経営方針は明確に示されている',
     '当社の業績（成長性、収益性、安定性）には満足している',
     '社員のことを考えた経営が行なわれていると思う',
-    '経営方针や経営計画・新製品情報など経営情報はタイムリーに知らされている',
-    '上司から定期的に部門方针や計画についての具体的な説明を受けている',
-    '会社の理念・ビジョン・経営方针に共感でき、その達成に参加したいと思える',
+    '経営方針や経営計画・新製品情報など経営情報はタイムリーに知らされている',
+    '上司から定期的に部門方針や計画についての具体的な説明を受けている',
+    '会社の理念・ビジョン・経営方針に共感でき、その達成に参加したいと思える',
     '会社の社会的評価は高いと感じますか',
     '会社の将来性・成長性はあると感じますか',
   ],
@@ -231,7 +231,7 @@ const Q_MAP = {
   c5: [
     '上司は困ったときに頼れる存在だ',
     '上司と業務上に必要な連携がとれていると思う',
-    '上司はあなたに対して方针を提示し、業務の指示・指導を適切におこなっていると思う',
+    '上司はあなたに対して方針を提示し、業務の指示・指導を適切におこなっていると思う',
     '上司の指示は明快かつ的確で仕事が進めやすい',
     '上司は相談事項などについて放置することなく、タイムリーに判断してくれる',
     '上司はあなたに対して、成長につながる指摘やフィードバックをしてくれている',
@@ -405,14 +405,14 @@ function buildFilter(){
 
 function calcRates(cat){
   const qids=Q_MAP[cat.id]||[]; let tot=0,neg=0;
-  filtered.forEach(row=>{const ans=parseAnswers(row);qids.forEach(qid=>{const v=ans[qid];if(v==='思う'||v==='思わない'){tot++;if(v==='思わない')neg++;}});});
+  filtered.forEach(row=>{const ans=parseAnswers(row);qids.forEach(qid=>{const v=ans[qid];if(v==='そう思う'||v==='どちらとも言えない'||v==='思わない'){tot++;if(v==='思わない')neg++;}});});
   const negRate=tot>0?parseFloat((neg/tot*100).toFixed(1)):0;
   return{posRate:parseFloat((100-negRate).toFixed(1)),negRate};
 }
 
 function calcOverall(){
   let tot=0,neg=0;
-  filtered.forEach(row=>{const ans=parseAnswers(row);Object.entries(ans).forEach(([k,v])=>{if(ENPS_KEYS.has(k))return;if(v==='思う'||v==='思わない'){tot++;if(v==='思わない')neg++;}});});
+  filtered.forEach(row=>{const ans=parseAnswers(row);Object.entries(ans).forEach(([k,v])=>{if(ENPS_KEYS.has(k))return;if(v==='そう思う'||v==='どちらとも言えない'||v==='思わない'){tot++;if(v==='思わない')neg++;}});});
   if(tot>0)return parseFloat((100-neg/tot*100).toFixed(1));
   const rates=filtered.map(r=>parseFloat(r.negativeRate)||0).filter(n=>!isNaN(n));
   if(rates.length)return parseFloat((100-rates.reduce((a,b)=>a+b,0)/rates.length*100).toFixed(1));
