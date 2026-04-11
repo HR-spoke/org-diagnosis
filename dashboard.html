@@ -279,7 +279,7 @@ const Q_MAP = {
   ],
 };
 
-const ENPS_KEYS = new Set(['eNPS','enps','q30','eNps']);
+const ENPS_KEYS = new Set(['eNPS','enps','q30','eNps','現在の職場を親しい友人や家族に薦めたいと思う']);
 
 const TRAINING_MAP = {
   c1:{title:'理念・ビジョン浸透研修',            desc:'企業理念・経営方針の理解促進と共感醸成のための研修を推奨します。'},
@@ -421,7 +421,7 @@ function calcOverall(){
 
 function calcENPS(){
   let promo=0,neut=0,detr=0;
-  filtered.forEach(row=>{const ans=parseAnswers(row);let v=null;for(const k of ENPS_KEYS){if(ans[k]!==undefined){v=ans[k];break;}}if(v==='promo')promo++;else if(v==='neut')neut++;else if(v==='detr')detr++;});
+  filtered.forEach(row=>{const ans=parseAnswers(row);let v=null;for(const k of ENPS_KEYS){if(ans[k]!==undefined){v=ans[k];break;}}if(v==='promo'||v==='思う')promo++;else if(v==='neut')neut++;else if(v==='detr'||v==='思わない')detr++;
   const total=promo+neut+detr;
   if(!total)return{promoP:0,neutP:0,detrP:0,score:0};
   const promoP=parseFloat((promo/total*100).toFixed(1)),neutP=parseFloat((neut/total*100).toFixed(1)),detrP=parseFloat((detr/total*100).toFixed(1));
