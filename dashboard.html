@@ -405,14 +405,14 @@ function buildFilter(){
 
 function calcRates(cat){
   const qids=Q_MAP[cat.id]||[]; let tot=0,neg=0;
-  filtered.forEach(row=>{const ans=parseAnswers(row);qids.forEach(qid=>{const v=ans[qid];if(v==='そう思う'||v==='どちらとも言えない'||v==='思わない'){tot++;if(v==='思わない')neg++;}});});
+  filtered.forEach(row=>{const ans=parseAnswers(row);qids.forEach(qid=>{const v=ans[qid];if(v==='そう思う'||v==='思う'||v==='どちらとも言えない'||v==='思わない'){tot++;if(v==='思わない')neg++;}});});
   const negRate=tot>0?parseFloat((neg/tot*100).toFixed(1)):0;
   return{posRate:parseFloat((100-negRate).toFixed(1)),negRate};
 }
 
 function calcOverall(){
   let tot=0,neg=0;
-  filtered.forEach(row=>{const ans=parseAnswers(row);Object.entries(ans).forEach(([k,v])=>{if(ENPS_KEYS.has(k))return;if(v==='そう思う'||v==='どちらとも言えない'||v==='思わない'){tot++;if(v==='思わない')neg++;}});});
+  filtered.forEach(row=>{const ans=parseAnswers(row);Object.entries(ans).forEach(([k,v])=>{if(ENPS_KEYS.has(k))return;if(v==='そう思う'||v==='思う'||v==='どちらとも言えない'||v==='思わない'){tot++;if(v==='思わない')neg++;}});});
   if(tot>0)return parseFloat((100-neg/tot*100).toFixed(1));
   const rates=filtered.map(r=>parseFloat(r.negativeRate)||0).filter(n=>!isNaN(n));
   if(rates.length)return parseFloat((100-rates.reduce((a,b)=>a+b,0)/rates.length*100).toFixed(1));
